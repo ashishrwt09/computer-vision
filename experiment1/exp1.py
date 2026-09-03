@@ -1,117 +1,80 @@
-#Part-1
-
-# Step 2: Import the required libraries
-import pandas as pd
-import numpy as np
+import cv2
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+import numpy as np
 
-# Step 1 & 3: Load the dataset and inspect structure
-df = pd.read_csv("https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv")
+# 1. Load Image using direct path
+image_path = r"C:\Users\rawat\Downloads\IMG_20260101_085451.jpg"
+img_bgr = cv2.imread(image_path)
 
-print("First 5 Rows:")
-print(df.head())
+if img_bgr is None:
+    raise FileNotFoundError(f"Image nahi mili! Path check karo: {image_path}")
 
-print("\nDataset Info:")
-df.info()
+# Matplotlib ke liye BGR se RGB convert
+img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-print("\nSummary Statistics:")
-print(df.describe())
+# 2. Image Properties
+height, width, channels = img_bgr.shape
+print("=" * 40)
+print("IMAGE PROPERTIES")
+print("=" * 40)
+print(f"Dimensions (W x H) : {width} x {height}")
+print(f"Number of Channels : {channels}")
+print(f"Data Type          : {img_bgr.dtype}")
+print(f"Total Pixels       : {img_bgr.size // channels}")
+print("=" * 40)
 
-# Step 4: Identify and handle missing values
-print("\nMissing values per column:")
-print(df.isnull().sum())
+# 3. Save image in different formats
+cv2.imwrite(r"C:\Users\rawat\Downloads\output_compressed.jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 50])
+cv2.imwrite(r"C:\Users\rawat\Downloads\output_lossless.png", img_bgr)
+print("Images successfully saved as JPEG and PNG in Downloads folder.")
 
-# Fill numerical missing values with median
-df['Age'] = df['Age'].fillna(df['Age'].median())
-df['Fare'] = df['Fare'].fillna(df['Fare'].median())
+# 4. Color Space Conversions
+img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+img_hsv  = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+img_lab  = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
 
-# Fill categorical missing values with mode
-df['Embarked'] = df['Embarked'].fillna(df['Embarked'].mode()[0])
+# 5. Geometric Transformations
+# Resizing
+img_resized = cv2.resize(img_rgb, (300, 300), interpolation=cv2.INTER_AREA)
 
-# Drop column with excessive missing data
-if 'Cabin' in df.columns:
-    df.drop(columns=['Cabin'], inplace=True)
+# Flipping
+img_h_flip = cv2.flip(img_rgb, 1)   # Horizontal
+img_v_flip = cv2.flip(img_rgb, 0)   # Vertical
 
-# Step 5: Detect and remove duplicate records
-print(f"\nDuplicates found: {df.duplicated().sum()}")
-df.drop_duplicates(inplace=True)
+# Rotation (-90 degrees clockwise around center)
+center = (width // 2, height // 2)
+rot_matrix = cv2.getRotationMatrix2D(center, -90, 1.0)
+img_rotated = cv2.warpAffine(img_rgb, rot_matrix, (width, height))
 
-# Step 6: Encode categorical variables
-# Label Encoding for binary features
-le = LabelEncoder()
-df['Sex'] = le.fit_transform(df['Sex'])  # male: 1, female: 0
+# 6. Image Complement (Negative)
+img_negative = 255 - img_rgb
 
-# One-Hot Encoding for multi-class categorical features
-df = pd.get_dummies(df, columns=['Embarked'], drop_first=True)
+# 7. Region of Interest (ROI) Cropping (Center area)
+ymin, ymax = height // 4, 3 * height // 4
+xmin, xmax = width // 4, 3 * width // 4
+roi = img_rgb[ymin:ymax, xmin:xmax]
 
-# Step 7: Outlier Detection and Treatment (IQR Method for Fare)
-Q1 = df['Fare'].quantile(0.25)
-Q3 = df['Fare'].quantile(0.75)
-IQR = Q3 - Q1
-lower_bound = Q1 - 1.5 * IQR
-upper_bound = Q3 + 1.5 * IQR
+# 8. Display Results using Matplotlib
+titles = [
+    'Original (RGB)', 'Grayscale', 'HSV', 
+    'LAB', 'Negative Image', 'Horizontal Flip', 
+    'Rotated (-90°)', 'Resized (300x300)', 'Cropped ROI'
+]
+images = [
+    img_rgb, img_gray, img_hsv, 
+    img_lab, img_negative, img_h_flip, 
+    img_rotated, img_resized, roi
+]
 
-# Cap outliers
-df['Fare'] = np.clip(df['Fare'], lower_bound, upper_bound)
+plt.figure(figsize=(15, 10))
+for i in range(len(images)):
+    plt.subplot(3, 3, i + 1)
+    if len(images[i].shape) == 2:
+        plt.imshow(images[i], cmap='gray')
+    else:
+        plt.imshow(images[i])
+    plt.title(titles[i], fontsize=12)
+    plt.axis('off')
 
-# Step 8: Normalization / Standardization
-scaler = StandardScaler()
-df[['Age', 'Fare']] = scaler.fit_transform(df[['Age', 'Fare']])
-
-# Step 9: Feature Engineering
-# Create FamilySize = SibSp + Parch + 1 (self)
-df['FamilySize'] = df['SibSp'] + df['Parch'] + 1
-
-# Create AgeGroup category
-df['AgeGroup'] = pd.cut(df['Age'], bins=3, labels=['Child', 'Adult', 'Senior'])
-
-# Step 10: Save cleaned dataset
-df.to_csv('titanic_cleaned.csv', index=False)
-print("\nPreprocessing complete. Saved to 'titanic_cleaned.csv'.")
-
-
-#Part-2
-
-# 1. Why is data preprocessing considered one of the most important phases in data analytics?
-# Sol:
-# Raw data is often noisy, missing values, duplicated, and inconsistent. Preprocessing cleans and structures data so machine learning algorithms can converge efficiently and produce accurate, unbiased predictions without "garbage in, garbage out" failure.
-# 2. Explain different methods of handling missing values with suitable examples.
-# Sol: 
-# Deletion: Dropping rows (df.dropna()) when missing entries are rare (<5%), or dropping columns (df.drop()) if most entries are missing (e.g., Cabin column).
-# Mean/Median Imputation: Replacing missing numbers with the central tendency (e.g., filling missing Age with median $28$ to avoid skew).
-# Mode Imputation: Replacing missing categorical values with the most frequent value (e.g., filling missing Embarked with 'S').
-# Predictive/KNN Imputation: Estimating missing values based on similarities to other feature rows.
-
-# 3. Differentiate between Label Encoding and One-Hot Encoding.
-# Sol:
-# FeatureLabel EncodingOne-Hot EncodingMechanismAssigns an integer to each category ($0, 1, 2...$)Creates separate binary columns ($0$ or $1$) for each unique valueBest Used ForOrdinal variables with inherent order (e.g., Low, Medium, High)Nominal variables without ordering (e.g., City: Delhi, Mumbai, Pune)RiskModels may misinterpret numerical order as mathematical weightIncreases dimensionality significantly (Curse of Dimensionality)
-
-# 4. What are outliers? How can they affect analytical results?
-# Sol:
-# Outliers are data points that deviate significantly from the overall pattern of the data. They skew summary statistics (inflating the mean and standard deviation) and degrade the performance of sensitive models (such as Linear Regression, K-Means clustering, and Neural Networks).
-
-# 5. Explain the difference between normalization and standardization.
-# Sol: 
-# Normalization (Min-Max Scaling): Rescales values to a fixed range, usually $[0, 1]$, using:$$X_{norm} = \frac{X - X_{min}}{X_{max} - X_{min}}$$Useful for algorithms requiring bounded inputs (e.g., Neural Networks, KNN).Standardization (Z-Score Normalization): Centers data around a mean of $0$ with a standard deviation of $1$ using:$$Z = \frac{X - \mu}{\sigma}$$Less sensitive to outliers and standard for algorithms assuming Gaussian distributions (e.g., Logistic Regression, SVM, PCA).
-
-# 6. Why should duplicate records be removed before analysis?
-# Sol:
-# Duplicate records lead to data leakage, falsely amplify patterns, skew model weights toward overrepresented points, and result in overoptimistic/inaccurate evaluation metrics.
-
-# 7. What is feature engineering? Give two practical examples.
-# Sol: 
-# Feature engineering is the process of using domain knowledge to extract new variables from raw data to improve model predictive power.Example 1: Combining SibSp (siblings/spouses) and Parch (parents/children) into a single FamilySize metric.Example 2: Extracting DayOfWeek, Hour, or IsWeekend from a single Timestamp column.
-
-# 8. Which preprocessing techniques would you apply to the IBM HR Employee Attrition dataset and why?
-# SOl: 
-# Removal of Zero-Variance Columns: Drop columns with a single unique value (like EmployeeCount, StandardHours, Over18) as they provide zero information.ID Removal: Drop identifier columns (EmployeeNumber) to prevent overfitting.One-Hot / Binary Encoding: Convert categorical attributes (OverTime, Department, JobRole, BusinessTravel) to numeric vectors.Feature Scaling: Apply StandardScaler to features like MonthlyIncome, TotalWorkingYears, and Age because they exist on vastly different numerical scales.Class Imbalance Handling: Handle the imbalanced target class (Attrition yes/no) using techniques like SMOTE or class weighting.
-
-# 9. How does poor-quality data affect machine learning model performance?
-# Sol:
-# It causes biased estimates, high variance, poor generalizability on unseen data, slow convergence during training, and misleading feature importance rankings.
-
-# 10. Name any three Python libraries commonly used for data preprocessing.
-# Sol:
-# Pandas (Data manipulation and cleaning)NumPy (Numerical operations and array handling)Scikit-Learn (sklearn.preprocessing module for scaling, encoding, and imputation)
+plt.tight_layout()
+plt.show()
