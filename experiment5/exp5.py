@@ -4,7 +4,6 @@ import numpy as np
 from skimage.feature import hog
 from skimage import exposure
 import os
-
 # ---------------------------------------------------------
 # Step 1 & 2: Load Image and Preprocessing
 # ---------------------------------------------------------

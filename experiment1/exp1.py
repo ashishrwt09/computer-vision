@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # 1. Load Image using direct path
-image_path = r"C:\Users\rawat\Downloads\IMG_20260101_085451.jpg"
+image_path = "experiment2/IMG_20260101_085451.jpg.jpeg"  
 img_bgr = cv2.imread(image_path)
 
 if img_bgr is None:
@@ -78,3 +78,6 @@ for i in range(len(images)):
 
 plt.tight_layout()
 plt.show()
+# Image ko experiment1 folder mein save karne ke liye
+cv2.imwrite("experiment1/output_image.png", img_rgb)
+print("Image successfully saved in experiment1 folder!")
